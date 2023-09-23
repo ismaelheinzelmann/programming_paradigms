@@ -1,9 +1,10 @@
+
 module ComparisonSudoku where
-import Data.List ( nub )
+import Data.List ( nub, (\\) )
+import Control.Monad
+import Control.Monad.State
 import Data.Maybe
-import System.FilePath (isValid)
-import Distribution.Simple.Command (OptDescr(BoolOpt))
-import Data.Map (valid)
+import Debug.Trace
 
 type Board = [[Int]]
 data Comparison = Less | Greater | None deriving (Eq, Show)
@@ -47,10 +48,12 @@ getCell board row col
     | col > 8 = 0
     | otherwise = board !! row !! col
 
-
 -- Linha, Coluna, Valor
-validRow :: Board -> ComparisonRows -> Int -> Bool
-validRow board comparisionRows row = length (nub (getRow board row)) == length (getRow board row)
+validRow :: Board -> Int -> Bool
+validRow board rowNumber = do
+    --filter row to remove 0s
+    let row = filter (/= 0) (getRow board rowNumber)
+    length (nub row) == length row
 
 validCellComparisions :: Board -> ComparisonRows -> ComparisonColumns -> Int -> Int -> Bool
 validCellComparisions board comparisionRows comparisionColumns row col =
@@ -98,22 +101,39 @@ validCellComparisions board comparisionRows comparisionColumns row col =
     in validUp && validDown && validLeft && validRight
 
 --verify if have any repeated values in the column
-validColumn :: Board -> ComparisonColumns -> Int -> Bool
-validColumn board comparisionColumns col = length (nub (getColumn board col)) == length (getColumn board col)
+validColumn :: Board -> Int -> Bool
+validColumn board col = do
+    let column = filter (/= 0) (getColumn board col)
+    length (nub column) == length column
 
 validBlock :: Board -> Int -> Int -> Bool
 validBlock board row col =
     let block = getBlock board row col
-    in length (nub block) == length block
+        blockWithoutZeros = filter (/= 0) block
+    in length (nub blockWithoutZeros) == length blockWithoutZeros
 
 
 validBoard :: Board -> ComparisonRows -> ComparisonColumns -> Bool
 validBoard board comparisionRows comparisionColumns =
-    let validRows = all (validRow board comparisionRows) [0..8]
-        validColumns = all (validColumn board comparisionColumns) [0..8]
+    let validRows = all (validRow board) [0..8]
+        validColumns = all (validColumn board) [0..8]
         validBlocks = all (\row -> all (validBlock board row) [0,3,6]) [0,3,6]
         validPlaces = all (\row -> all (validCellComparisions board comparisionRows comparisionColumns row) [0..8]) [0..8]
     in validRows && validColumns && validBlocks && validPlaces
+
+--Verify if the value is valid to be placed in the next empty cell on board
+validInsert :: Board -> ComparisonRows -> ComparisonColumns -> Int -> Bool
+validInsert board comparisionRows comparisionColumns value =
+    let nextEmpty = firstEmpty board
+    in case nextEmpty of
+        Nothing -> validBoard board comparisionRows comparisionColumns
+        Just (row, col) -> do
+            let newBoard = insertFirstEmpty board value
+                validComparisions = validCellComparisions (insertFirstEmpty board value) comparisionRows comparisionColumns row col
+                validR = validRow newBoard row
+                validC = validColumn newBoard col
+                validB = validBlock newBoard row col
+            validComparisions && validR && validC && validB
 
 replace :: [[Int]] -> Int -> Int -> Int -> [[Int]]
 replace block row col value =
@@ -121,18 +141,16 @@ replace block row col value =
         (zs, _:ws) = splitAt col y
     in xs ++ [zs ++ [value] ++ ws] ++ ys
 
---Verify if the board full
-isFull :: Board -> Bool
-isFull = all (notElem 0)
+isFull :: [[Int]] -> Bool
+isFull = not . any (elem 0)
 
---Find first empty position, position is empty if value is Nothing
-firstEmpty :: Board -> (Int, Int)
-firstEmpty board = head [(row, col) | row <- [0..8], col <- [0..8], board !! row !! col == 0]
+--find first row col containing 0 in board, return Nothing if not found
+firstEmpty :: Board -> Maybe (Int, Int)
+firstEmpty board = listToMaybe [(row, col) | row <- [0..8], col <- [0..8], board !! row !! col == 0]
 
 --Print board
 printBoard :: Board -> IO ()
 printBoard = mapM_ print
-
 
 --tested
 getBlock :: Board -> Int -> Int -> [Int]
@@ -149,12 +167,22 @@ getRow board row = board !! row
 getColumn :: Board -> Int -> [Int]
 getColumn board col = map (!! col) board
 
-backtrack :: Board -> ComparisonRows -> ComparisonColumns -> Maybe Board
-backtrack board comparisionRows comparisionColumns
-    | isFull board = Just board
-    | otherwise =
-        let (row, col) = firstEmpty board
-            possibleValues = [1..9]
-            validValues = filter (\value -> validCellComparisions board comparisionRows comparisionColumns row col) possibleValues
-            solutions = map (\value -> backtrack (replace board row col value) comparisionRows comparisionColumns) validValues
-        in listToMaybe (catMaybes solutions)
+insertFirstEmpty :: Board -> Int -> Board
+insertFirstEmpty board value = do
+    let empty = firstEmpty board
+    case empty of
+        Nothing -> board
+        Just (row, col) -> replace board row col value
+
+solveSudokuBacktracking :: Board -> ComparisonRows -> ComparisonColumns -> Maybe Board
+solveSudokuBacktracking board comparisionRows comparisionColumns =
+    if isFull board then do
+        traceM $ "Full" ++ show board
+        if validBoard board comparisionRows comparisionColumns
+            then do
+                Just board
+            else Nothing
+    else do
+        traceM $ "Not Full: " ++ show board
+        let validPlacements = filter (\x -> validInsert board comparisionRows comparisionColumns x) [1..9]
+        if null validPlacements then Nothing else listToMaybe $ mapMaybe (\value -> solveSudokuBacktracking (insertFirstEmpty board value) comparisionRows comparisionColumns) validPlacements

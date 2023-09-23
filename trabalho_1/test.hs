@@ -22,7 +22,35 @@ main = do
                                                     [Less, Greater,None, Less, Greater,None, Less, Greater],
                                                     [Greater, Greater,None, Greater, Greater,None, Less, Less],
                                                     [Less, Greater,None, Less, Greater,None, Less, Greater]]
-    let solution :: Maybe Board = solveSudokuBacktracking board comparisionRows comparisionColumns
-    case solution of
-        Just board -> printBoard board
-        Nothing -> putStrLn "No solution found."
+    let solution :: Board = [[3, 4, 2, 6, 8, 9, 7, 5, 1],
+                             [1, 5, 6, 3, 7, 2, 8, 4, 9],
+                             [7, 8, 9, 4, 5, 1, 3, 2, 6],
+                             [9, 2, 1, 5, 4, 7, 6, 8, 3],
+                             [8, 3, 4, 2, 1, 6, 9, 7, 5],
+                             [6, 7, 5, 8, 9, 3, 2, 1, 4],
+                             [4, 9, 8, 7, 6, 5, 1, 3, 2],
+                             [2, 1, 7, 9, 3, 4, 5, 6, 8],
+                             [5, 6, 3, 1, 2, 8, 4, 9, 7]]
+    -- let solution = [[3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [7, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [9, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [8, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [6, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [4, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    --                 [5, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+
+    if isFull solution
+        then putStrLn "Solution is full."
+        else putStrLn "Solution is not full."
+    -- if validBoard solution comparisionRows comparisionColumns
+    --     then putStrLn "Solution is valid."
+    --     else putStrLn "Solution is not valid."
+    -- if validBoard solution comparisionRows comparisionColumns
+    --     then putStrLn "Solution is valid."
+    --     else putStrLn "Solution is not valid."
+    -- let solution :: Maybe Board = solveSudokuBacktracking board comparisionRows comparisionColumns
+    -- case solution of
+    --     Just board -> printBoard board
+    --     Nothing -> putStrLn "No solution found."
