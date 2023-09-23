@@ -47,7 +47,13 @@ main = do
     if isFull solution then putStrLn "isFull solution" else putStrLn ""
     if validRow solution comparisionRows 0 0 then putStrLn "validRow solution comparisionRows 0 0" else putStrLn ""
     if validColumn solution comparisionColumns 0 0 then putStrLn "validColumn solution comparisionColumns 0 0" else putStrLn ""
-    -- let solution :: Maybe Board = backtrack board comparisionRows comparisionColumns
-    -- case solution of
-    --     Just board -> printBoard board
-    --     Nothing -> putStrLn "No solution found."
+    if validBlock solution 0 0 then putStrLn "validBlock solution 0 0" else putStrLn "INVALID"
+
+
+
+
+    if validBoard solution comparisionRows comparisionColumns then putStrLn "validBoard solution" else putStrLn ""
+    let solution :: Maybe Board = backtrack board comparisionRows comparisionColumns
+    case solution of
+        Just board -> printBoard board
+        Nothing -> putStrLn "No solution found."

@@ -2,6 +2,8 @@ module ComparisonSudoku where
 import Data.List ( nub )
 import Data.Maybe
 import System.FilePath (isValid)
+import Distribution.Simple.Command (OptDescr(BoolOpt))
+import Data.Map (valid)
 
 type Board = [[Int]]
 data Comparison = Less | Greater | None deriving (Eq, Show)
@@ -38,8 +40,8 @@ getComparatorRight comparisionRows row col
     | otherwise = comparisionRows !! row !! col
 
 getCell :: Board -> Int -> Int -> Int
-getCell board row col 
-    | row < 0 = 0 
+getCell board row col
+    | row < 0 = 0
     | row > 8 = 0
     | col < 0 = 0
     | col > 8 = 0
@@ -54,7 +56,7 @@ validRow board comparisionRows row col =
         left = board !! row !! (col - 1)
         right = board !! row !! (col + 1)
         value = getCell board row col
-        
+
         validLeft = case comparatorLeft of
             None -> True
             Less -> case left of
@@ -102,9 +104,15 @@ validColumn board comparisionColumns row col =
 
 validBlock :: Board -> Int -> Int -> Bool
 validBlock board row col =
-    let block = concat (take 3 (drop (row `div` 3 * 3) board))
-        validBlock = length (nub block) == length block
-    in validBlock
+    let block = getBlock board row col
+    in length (nub block) == length block
+
+validBoard :: Board -> ComparisonRows -> ComparisonColumns -> Bool
+validBoard board comparisionRows comparisionColumns =
+    let validRows = all (\row -> all (validRow board comparisionRows row) [0..8]) [0..8]
+        validColumns = all (\col -> all (\row -> validColumn board comparisionColumns row col) [0..8]) [0..8]
+        validBlocks = all (\row -> all (validBlock board row) [0, 3, 6]) [0, 3, 6]
+    in validRows && validColumns && validBlocks
 
 replace :: [[Int]] -> Int -> Int -> Int -> [[Int]]
 replace block row col value =
@@ -120,29 +128,26 @@ isFull = all (notElem 0)
 firstEmpty :: Board -> (Int, Int)
 firstEmpty board = head [(row, col) | row <- [0..8], col <- [0..8], board !! row !! col == 0]
 
--- --Print board
--- printBoard :: Board -> IO ()
--- printBoard = mapM_ printRow
---     where
---         printRow :: [Maybe Int] -> IO ()
---         printRow row = putStrLn (concatMap showCell row ++ "\n")
---         showCell :: Maybe Int -> String
---         showCell Nothing = " "
---         showCell (Just n) = show n
+--Print board
+printBoard :: Board -> IO ()
+printBoard = mapM_ print
 
---Apply validLine, validColumn and validBlock to the board
-validBoard :: Board -> Bool
-validBoard board =
-    let validLine = all (\row -> length (nub row) == length row) board
-        validColumn = all ((\col -> length (nub col) == length col) . (\col -> map (!! col) board)) [0..8]
-        validBlock = all ((\block -> length (nub block) == length block) . (\block -> concat (take 3 (drop (block `div` 3 * 3) board)))) [0..8]
-    in validLine && validColumn && validBlock
 
--- backtrack :: Board -> ComparisonRows -> ComparisonColumns -> Maybe Board
--- backtrack board comparisionRows comparisionColumns
---     | isFull board = Just board
---     | otherwise =
---         let (row, col) = firstEmpty board
---             validValues = filter (\value -> validRow board comparisionRows row col && validColumn board comparisionColumns row col && validBlock board row col) [1..9]
---             solutions = map (\value -> backtrack (replace board row col (Just value)) comparisionRows comparisionColumns) validValues
---         in listToMaybe (catMaybes solutions)
+--tested
+getBlock :: Board -> Int -> Int -> [Int]
+getBlock board row col =
+    let blockRow = row `div` 3
+        blockCol = col `div` 3
+        startRow = blockRow * 3
+        startCol = blockCol * 3
+    in [board !! row !! col | row <- [startRow..startRow + 2], col <- [startCol..startCol + 2]]
+
+backtrack :: Board -> ComparisonRows -> ComparisonColumns -> Maybe Board
+backtrack board comparisionRows comparisionColumns
+    | isFull board = Just board
+    | otherwise =
+        let (row, col) = firstEmpty board
+            block = getBlock board row col
+            validValues = [value | value <- [1..9], value `notElem` block, validRow board comparisionRows row col, validColumn board comparisionColumns row col]
+            solutions = map (\value -> backtrack (replace board row col value) comparisionRows comparisionColumns) validValues
+        in listToMaybe (catMaybes solutions)
